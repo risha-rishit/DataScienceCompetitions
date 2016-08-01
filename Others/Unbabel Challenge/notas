@@ -1,0 +1,169 @@
+
+
+- processar as sentences: stopwords, pontuação e minusculas
+- criar features com POS e n-grams
+- criar modelo com SVM
+
+
+
+
+TUTORIAL SEGUIDO:
+http://www.markhneedham.com/blog/2015/02/20/pythonscikit-learn-detecting-which-sentences-in-a-transcript-contain-a-speaker/ e 
+http://www.markhneedham.com/blog/2015/03/02/python-scikit-learn-training-a-classifier-with-non-numeric-features/
+
+
+
+
+
+
+
+
+************************************************************
+exerc. 4.3 http://lxmls.it.pt/2014/guide.pdf
+############################
+
+Ambiente virtual: unbabel
+ativar: source activate unbabel
+
+Instalar:
+conda install nltk
+nltk.download()
+conda install jupyter
+conda install pandas
+conda install scikit-learn
+conda install seaborn
+
+
+
+Pipeline:
+
+
+1. Carregar dados
+2. Explorar os dados (visualização, estatisticas)
+3. Processar o texto
+	- tokenizer
+	- stopwords
+	- ...
+4 - Separar o dataset em treino e test
+5 - Criar o modelo
+6 - Avaliar o modelo
+
+
+PErguntas:
+
+- faz sentido retirar as stopwords e pontuações?
+- faz sentido utilizar POS?
+- n-grams?
+- parse tree features (chunks?)
+- Calculating high information words (livro NLTK Cookbook, pag 187 - consiste em ver quais as palavras que identificam melhor a label e retirar as que estão em ambos, ou seja, nao distinguem).
+- como detetar overfitting?
+- ensembling (Combining classifiers with voting - livro NLTK Cookbook, pag 191)
+
+
+
+POS
+from nltk.tag.sequential import ClassifierBasedPOSTagger
+>>> tagger = ClassifierBasedPOSTagger(train=train_sents)
+>>> tagger.evaluate(test_sents)
+
+CHUNKS 
+Unlike most part-of-speech taggers, the ClassifierBasedTagger learns from features.
+That means we can create a ClassifierChunker that can learn from both the words and part-of-speech tags, instead of only the part-of-speech tags as the TagChunker does.
+from chunkers import ClassifierChunker
+>>> chunker = ClassifierChunker(train_chunks)
+>>> score = chunker.evaluate(test_chunks)
+>>> score.accuracy()
+0.97217331558380216
+>>> score.precision()
+0.92588387933830685
+>>> score.recall()
+0.93590163934426229
+
+Penn Treebank Part-of-Speech Tags (consiste na frequencia dos POS em cada sentence)
+from nltk.probability import FreqDist
+from nltk.corpus import treebank
+fd = FreqDist()
+for word, tag in treebank.tagged_words():
+fd.inc(tag)
+fd.items()
+
+BIGRAM
+from nltk.corpus import webtext
+>>> from nltk.collocations import BigramCollocationFinder
+>>> from nltk.metrics import BigramAssocMeasures
+>>> words = [w.lower() for w in webtext.words('grail.txt')]
+>>> bcf = BigramCollocationFinder.from_words(words)
+>>> bcf.nbest(BigramAssocMeasures.likelihood_ratio, 4)
+OU
+from nltk.collocations import BigramCollocationFinder
+from nltk.metrics import BigramAssocMeasures
+def bag_of_bigrams_words(words, score_fn=BigramAssocMeasures.chi_sq,
+n=200):
+bigram_finder = BigramCollocationFinder.from_words(words)
+bigrams = bigram_finder.nbest(score_fn, n)
+return bag_of_words(words + bigrams)
+
+
+TRIGRAMS
+from nltk.collocations import TrigramCollocationFinder
+>>> from nltk.metrics import TrigramAssocMeasures
+>>> words = [w.lower() for w in webtext.words('singles.txt')]
+>>> tcf = TrigramCollocationFinder.from_words(words)
+>>> tcf.apply_word_filter(filter_stops)
+>>> tcf.apply_freq_filter(3)
+>>> tcf.nbest(TrigramAssocMeasures.likelihood_ratio, 4)
+[('long', 'term', 'relationship')]
+
+####################################################################
+Notas:
+- criar modelos com o dataset separado (nao esta)
+- avaliar os modelos no dataset de test (não está)
+- recolher dados de avaliação dos modelos (versões) (não está)
+- Ensemble??
+- GridSearch??
+- ver tecnicas de unsupervised (https://www.quora.com/How-can-unsupervised-machine-learning-techniques-be-applied-in-NLP-and-what-could-be-the-applications-of-it)
+- colocar no git??
+- depois de criar features e modelos, verificar se ha features que não são relevantes
+
+---------------------------
+The benefits of SVMs for text categorization have been identified since it learns well with many relevant features (Joachims, 1998). In order to find those poorly SMT-translated sentences, we train an SVM-classifier on a feature space. Most features are linguistically motivated only from the target language side.
+Among all features, a major part is related to the syntactic parser. The parsing structure of the output sentence is very sensible to the quality of SMT outputs. we will train an SVM classifier with linear kernel.
+A very important type of linguistic features is directly linked to syntactic structure of sentence. When getting the parse tree of a sentence, we can exploit a number of available properties, such as sentence structure and the densities of constituent types, to design as our features. For parser implementation, we use Stanford Lexicalized Parser version 3.3.1. (De Marneffe et al., 2006).
+The features related to the parse tree are as the following (VER ARTIGO A Machine Learning Method to Distinguish Machine Translation from Human Translation COM AS FEATURES DO PARSE TREE metodo)
+---------------------------------------------
+using style-related linguistic features, such as frequencies of parts- of-speech n-grams and function words, it is possible to learn classifiers that distinguish machine-translated text from human-translated.
+Our features are binary, denoting the presence or absence of each of a set of part-of-speech n-grams acquired using the Stanford POS tagger (Toutanova et al., 2003) as well as the presence or absence of each of 467 function words taken from LIWC (Pennebaker et al., 2001).
+
+As our learning algorithm we use SVM with sequential minimal optimization (SMO) (weka).
+
+
+-------------------
+Use a linear SVM classifier with the Function-word and POS features to classify human vs. MT 
+For a given MT system:
+• Perform a 10-fold cross validation across the different sentences in the test set
+Tested 3 different feature settings (POS, function words and both)
+-----------------------------
+Features
+
+We wish to distinguish machine translated English sentences from either human-translated sentences or native English sentences. Due to the sparseness of the data at the sentence level, we use common content-independent linguistic features for the classification task. Our features are binary, denoting the presence or absence of each of a set of part-of-speech n-grams acquired using the Stanford POS tagger [], as well as the presence or absence of each of 467 function words taken from LIWC []. We consider only those entries that appear at least ten times in the entire corpus, in order to reduce sparsity in the data. As our learning algorithm we use SVM with sequential minimal optimization (SMO), taken from the WEKA machine learning toolkit [].
+--------------------------------
+Perplexity measures:
+	We calculated two sets of values: lexicalized trigram perplexity, with values discretized into deciles and part of speech (POS) trigram perplexity. For the latter we used the following sixteen POS tags:  djective, adverb, auxiliary, punctuation, complementizer, coordinating conjunction, subordinating conjunction,  eterminer, interjection, noun, possessor, preposition, pronoun, quantifier, verb, and other. 
+Linguistic features fell into several subcategories: 
+	branching properties of the parse; function word density, constituent length, and other miscellaneous features
+
+---------------------------------
+
+Becoming less naive
+As stated earlier, the algorithm assumes that there is no relationship between the individual features. Thus, phrases like "machine learning" and "learning machine" or "New York Jet" and "jet to New York" are equivalent (to is a stopword). In natural language context, there is an obvious relationship between these words. So, how can I teach the algorithm to become "less naive" and recognize these word relationships?
+One technique is to include the common bigrams (groups of two words) and trigrams (groups of three words) in the feature set. It should now come as no surprise that NLTK provides support for this in the form of the nltk.bigrams(...) and nltk.trigrams(...) functions. Just as the top n-number of words were collected from the population of training data words, the top bigrams and trigrams can similarly be identified and used as features.
+
+
+Align sentence
+http://www.nltk.org/api/nltk.align.html
+
+We used Support Vector Machines (SVM) with a linear kernel. This choice is motivated in part by the state-of-the-art performance of SVM on many binary text classification tasks, and in part by the fact that  Baroni and Bernardini (2006) and van Halteren (2008) reported good performance on similar tasks with these models.
+
+a support vector machine (SVM) was used to classify
+text as human-written English. LibSVM was used.
+
